@@ -45,17 +45,26 @@
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
-extern float dataYaw,dataPitch,dataRoll, dataYaw_Zero, dataPitch_Zero, dataRoll_Zero;
-extern float lastError1, hasilError1,lastError2, hasilError2, lastError3, hasilError3, lastError4, hasilError4, lastError5, hasilError5, lastError6, hasilError6;
-extern float kpr,kdr, kpy,kdy, kpp,kdp, kpb,kdb, kpAl, kdAl;	
-extern float setPointRoll, setPointYaw, setPointPitch, pidkpr,pidkdr, pidkpy,pidkdy, pidkpp,pidkdp, sudut_belok;
-extern float pidp,pidr,pidy;
-extern float error1,error2,error3;
-extern int HasilPidP,HasilPidR,HasilPidY;	
-extern int setServo, BRUSHLESS_one;
-extern float lastErrorAltitude, hasilErrorAltitude, setPointAltitude, pidkpAl, pidkdAl, errorAltitude, pidAl, HasilPidAl;   // Altitude PID
-extern float data_altitude_zero;
-extern int data_altitude;
+// ########################## PID CONTROL SYSTEM #############################//
+	extern float TimeSampling;
+	extern float KP_PITCH,KI_PITCH,KD_PITCH;
+	extern float KP_ROLL,KI_ROLL,KD_ROLL;
+	extern float KP_YAW,KI_YAW,KD_YAW;
+	
+	extern float ErrPitch, ErrRoll, ErrYaw;
+	extern float LastErrPitch, LastErrRoll, LastErrYaw;
+	extern float IntegralErrPitch, IntegralErrRoll, IntegralErrYaw;
+	extern float DerivatifErrPitch, DerivatifErrRoll, DerivatifErrYaw;
+	 
+	extern float PropotionalPitch, PropotionalRoll, PropotionalYaw;
+	extern float IntegralPitch, IntegralRoll, IntegralYaw;
+	extern float DerivatifPitch, DerivatifRoll, DerivatifYaw;
+	 
+	extern float PID_Pitch, PID_Roll, PID_Yaw;
+	extern float OutPidPitch, OutPidRoll, OutPidYaw;
+	
+	extern float dataYaw,dataPitch,dataRoll, dataYaw_Zero, dataPitch_Zero, dataRoll_Zero;
+	extern int setServo, BRUSHLESS_one;
 	
 
 /******************************************************************************/
@@ -164,7 +173,8 @@ __weak void TimingDelay_Decrement(void) {
   * @param  None
   * @retval None
   */
-//PID CONTROL GLIDER PLANE 
+
+/*
 void AltitudePID(){
 	errorAltitude = data_altitude_zero - data_altitude;
 	errorAltitude *= -1;
@@ -177,48 +187,95 @@ void AltitudePID(){
 	if(HasilPidAl >= 1700) {HasilPidAl = 1700;}
 	if(HasilPidAl <= 1000) {HasilPidAl = 1000;}
 }
+*/
+
+
+// FUNCTION PID GLIDER PLANE 
 void pitchPID(){
-	error3 = dataPitch_Zero - dataPitch;
-	error3 *= -1;
-	hasilError3 = error3 - lastError3;
-	lastError3 = error3;
+	ErrPitch = dataPitch_Zero - dataPitch;
 	
-	pidp = ((error3*kpp) + (hasilError3*kdp)) / 0.001;
-	HasilPidP  = setServo + pidp;
+	IntegralErrPitch += (ErrPitch * TimeSampling);
+		if (IntegralErrPitch >= 1000) IntegralErrPitch = 1000;
+		else if(IntegralErrPitch <= -1000) IntegralPitch = -1000;
 	
-	if (HasilPidP >= 160 ) {HasilPidP = 160; }
-	if (HasilPidP <=  20 ) {HasilPidP =  20; }
+	DerivatifErrPitch = (ErrPitch - LastErrPitch) / TimeSampling;
+	LastErrPitch = ErrPitch;
+	
+	PropotionalPitch 	= ErrPitch  * KP_PITCH;
+	IntegralPitch			= IntegralErrPitch * KI_PITCH;
+	DerivatifPitch 		= DerivatifErrPitch * KD_PITCH;
+	
+	PID_Pitch 				= PropotionalPitch + IntegralPitch + DerivatifPitch;
+	
+	//HasilPidP  = setServo + pidp;
 }
 void yawPID(){
-	//error2 = setPointYaw - (dataYaw+70) ;
-	error2 = dataYaw_Zero - dataYaw;
+	ErrYaw = dataYaw_Zero - dataYaw;
 	
-	pidy = (error2*kpy)+(hasilError2*kdy);
-	hasilError2 = error2 - lastError2;
-	lastError2 = error2;
+	IntegralErrYaw 	+= (ErrYaw * TimeSampling);
+		if (IntegralErrYaw >= 1000) IntegralErrYaw = 1000;
+		else if (IntegralErrYaw <= -1000) IntegralErrYaw = -1000;
 	
-	HasilPidY = setServo + pidy; 
-	if (HasilPidY>=160){HasilPidY=160;}
-	if (HasilPidY<=20) {HasilPidY=20;}
+	DerivatifErrYaw = (ErrYaw - LastErrYaw) / TimeSampling;
+	LastErrYaw = ErrYaw;
+	
+	PropotionalYaw 	= ErrYaw  * KP_YAW;
+	IntegralYaw			= IntegralErrYaw * KI_YAW;
+	DerivatifYaw 		= DerivatifErrYaw * KD_YAW;
+	
+	PID_Yaw				= PropotionalYaw + IntegralYaw + DerivatifYaw;
+	
+	//HasilPidY = setServo + pidy; 
 }
 void rollPID(){
-	error1=dataRoll_Zero - dataRoll;
-	hasilError1 = error1 - lastError1;
-	lastError1 = error1;
+	ErrRoll = dataRoll_Zero - dataRoll;
 	
-	pidr = ((error1*kpr)+(hasilError1*kdr))/0.001;
+	IntegralErrRoll += (ErrRoll * TimeSampling);
+	  if(IntegralErrRoll >= 1000) IntegralErrRoll = 1000;
+		else if (IntegralErrRoll <= -1000) IntegralErrRoll = -1000;
 	
-	HasilPidR = setServo - pidr; 
+	DerivatifErrRoll = (ErrRoll - LastErrRoll) / TimeSampling;
+	LastErrRoll = ErrRoll;
 	
-	if (HasilPidR>=160){HasilPidR=160;}
-	if (HasilPidR<=20) {HasilPidR=20;}
+	PropotionalRoll 	= ErrRoll  * KP_ROLL;
+	IntegralRoll			= IntegralErrRoll * KI_ROLL;
+	DerivatifRoll 		= DerivatifErrRoll * KD_ROLL;
+	
+	PID_Roll				= PropotionalRoll + IntegralRoll + DerivatifRoll;
+
+	//HasilPidR = setServo - pidr; 
 }
+void TrustControl(){
+	
+	/* JIKA Pergerakan TERBALIK GANTI PLUS (+) KE MINUS (-)
+	*/
+	
+	
+	OutPidPitch		= setServo + PID_Pitch;
+	OutPidYaw			= setServo + PID_Yaw;
+	OutPidRoll		= setServo + PID_Roll;
+	
+	if (OutPidPitch >= 170) OutPidPitch = 170;
+	else if (OutPidPitch <= 10) OutPidPitch = 10;
+	
+	if (OutPidYaw >= 170) OutPidYaw = 170;
+	else if (OutPidYaw <= 10) OutPidYaw = 10;
+
+	if (OutPidRoll >= 170) OutPidRoll = 170;
+	else if (OutPidRoll <= 10) OutPidRoll = 10;
+	
+}
+int counter1=0;
 void SysTick_Handler(void)
 {
-	rollPID();
-	pitchPID();
-	yawPID();
-	Delayms(1);
+	counter1++;
+	if (counter1 >= 10){
+		yawPID();
+		pitchPID();
+		rollPID();
+		TrustControl();
+		counter1 = 0;
+	}
 	TimingDelay_Decrement();
 }
 
